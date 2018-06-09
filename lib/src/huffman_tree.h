@@ -39,9 +39,9 @@ private:
         Node() = default;
 
         explicit Node(char _symbol,
-             bool _is_terminal = true,
-             std::shared_ptr<Node> _left = nullptr,
-             std::shared_ptr<Node> _right = nullptr
+                      bool _is_terminal = true,
+                      std::shared_ptr<Node> _left = nullptr,
+                      std::shared_ptr<Node> _right = nullptr
         );
     };
 
@@ -60,8 +60,8 @@ private:
     };
 
     void init_codes(std::shared_ptr<Node> node,
-              unsigned long long code = 0,
-              unsigned int size = 0);
+                    unsigned long long code = 0,
+                    unsigned int size = 0);
 
     void init_tree_structure(std::shared_ptr<Node> node);
 

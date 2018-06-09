@@ -6,9 +6,9 @@
 #include "huffman_tree.h"
 
 huffman_tree::Node::Node(char _symbol,
-                   bool _is_terminal,
-                   std::shared_ptr<Node> _left,
-                   std::shared_ptr<Node> _right) :
+                         bool _is_terminal,
+                         std::shared_ptr<Node> _left,
+                         std::shared_ptr<Node> _right) :
         symbol(_symbol),
         is_terminal(_is_terminal),
         left(std::move(_left)),
@@ -154,29 +154,32 @@ void huffman_tree::error(std::string message) {
 }
 
 size_t huffman_tree::decode(char const* array, unsigned int size, char* answer) {
-    std::shared_ptr<Node> node = root;
+    if (!root) {
+        error();
+    }
+    Node* node = root.get();
     unsigned int i = 0, j = 0, pos = 0;
-    while (i * sizeof(char) * 8 + j < size) {
+    while (i * 8 + j < size) {
         if (node->is_terminal) {
             *(answer + pos++) = node->symbol;
-            node = root;
+            node = root.get();
         } else if ((array[i] >> j) & 1) {
-            if (node->right == nullptr) {
+            if (!node->right) {
                 error();
             }
-            node = node->right;
+            node = node->right.get();
 
-            if (j == sizeof(char) * 8 - 1)
+            if (j == 7)
                 ++i, j = 0;
             else
                 ++j;
         } else {
-            if (node->left == nullptr) {
+            if (!node->left) {
                 error();
             }
-            node = node->left;
+            node = node->left.get();
 
-            if (j == sizeof(char) * 8 - 1)
+            if (j == 7)
                 ++i, j = 0;
             else
                 ++j;
@@ -189,5 +192,4 @@ size_t huffman_tree::decode(char const* array, unsigned int size, char* answer) 
     }
     return pos;
 }
-
 

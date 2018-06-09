@@ -6,7 +6,7 @@
 #include "archiver.h"
 
 size_t const BUFFER_SIZE = 2 * 1024 * 1024;
-int const range = (1u << (sizeof(char) * 8));
+int const range = (1u << 8u);
 int const shift = range / 2;
 
 void archiver::encode(std::istream& in, std::ostream& out) {
@@ -43,14 +43,14 @@ void archiver::encode(std::istream& in, std::ostream& out) {
     auto structure = tree.get_tree_structure();
     auto symbols = tree.get_symbols();
 
-    *reinterpret_cast<short int*>(out_buff) = (short int)symbols.size();
-    size_t i = sizeof(short int);
+    out_buff[0] = (char)((int)symbols.size() - 1 - shift);
+    size_t i = sizeof(char);
     for (size_t j = 0; j < symbols.size(); ++j, ++i) {
         out_buff[i] = symbols[j];
     }
-    for (size_t j = 0; j < structure.size(); j += sizeof(char) * 8) {
+    for (size_t j = 0; j < structure.size(); j += 8) {
         char tmp = 0;
-        for (size_t k = 0; k < sizeof(char) * 8; ++k) {
+        for (size_t k = 0; k < 8; ++k) {
             if (j + k < structure.size()) {
                 tmp |= (structure[j + k] << k);
             }
@@ -70,16 +70,16 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         for (j = 0; j < in_size; ++j) {
             auto [code, code_size] = codes[in_buff[j]];
             bit_counter += code_size;
-            for (k = 0; k < code_size && ibit < sizeof(char) * 8; ++k, ++ibit) {
+            for (k = 0; k < code_size && ibit < 8; ++k, ++ibit) {
                 char bit = (code >> k) & 1;
                 tmp |= (bit << ibit);
             }
-            if (ibit == sizeof(char) * 8) {
+            if (ibit == 8) {
                 out_buff[i++] = tmp;
                 tmp = 0;
                 ibit = 0;
             }
-            for (; k + sizeof(char) * 8 < code_size; k += sizeof(char) * 8) {
+            for (; k + 8 < code_size; k += 8) {
                 out_buff[i++] = (char)(code >> k);
             }
             for (; k < code_size; ++k, ++ibit) {
@@ -90,12 +90,16 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         if (ibit > 0) {
             out_buff[i++] = tmp;
         }
-        unsigned int out_size = (unsigned int)(i - sizeof(unsigned int) - (ibit != 0)) * sizeof(char) * 8 + ibit;
-        *reinterpret_cast<unsigned int*>(out_buff) = out_size;
+        unsigned int out_size = (unsigned int)(i - sizeof(unsigned int) - (ibit != 0)) * 8 + (unsigned int)ibit;
+        for (unsigned int l = 0; l < sizeof(unsigned int); ++l) {
+            out_buff[l] = (char)(out_size >> (l * 8));
+        }
         out.write(out_buff, i);
     }
+
     double executing_time = (clock() - timer) / CLOCKS_PER_SEC;
     std::clog << "Encoding completed in " << executing_time << " seconds" << std::endl;
+
     delete[] (frequency - shift);
 }
 
@@ -114,8 +118,9 @@ void archiver::decode(std::istream &in, std::ostream &out) {
     if (message_size < MINIMUM_MESSAGE_SIZE) {
         throw std::runtime_error("decoding error");
     }
-    size_t amount_of_symbols = 0;
-    in.read(reinterpret_cast<char*>(&amount_of_symbols), sizeof(short int));
+    char cnt = 0;
+    in.read(&cnt, sizeof(char));
+    int amount_of_symbols = (int)cnt + 1 + shift;
     if (amount_of_symbols <= 0) {
         throw std::runtime_error("decoding error");
     }
@@ -123,18 +128,18 @@ void archiver::decode(std::istream &in, std::ostream &out) {
     size_t i = 0;
     std::vector<char> symbols;
     std::vector<bool> structure;
-    in.read(in_buff, amount_of_symbols + (tree_structure_size + sizeof(char) * 8 - 1) / (sizeof(char) * 8));
+    in.read(in_buff, amount_of_symbols + (tree_structure_size + 7) / 8);
     for (; i < (size_t)amount_of_symbols; ++i) {
         symbols.push_back(in_buff[i]);
     }
     while (tree_structure_size > 0) {
         char tmp = 0;
-        if (tree_structure_size >= sizeof(char) * 8) {
+        if (tree_structure_size >= 8) {
             tmp = in_buff[i++];
-            for (size_t j = 0; j < sizeof(char) * 8; ++j) {
+            for (size_t j = 0; j < 8; ++j) {
                 structure.push_back((tmp >> j) & 1);
             }
-            tree_structure_size -= sizeof(char) * 8;
+            tree_structure_size -= 8;
         } else {
             tmp = in_buff[i++];
             for (size_t j = 0; j < tree_structure_size; ++j) {
@@ -148,13 +153,17 @@ void archiver::decode(std::istream &in, std::ostream &out) {
 
     while (in.peek() != std::istream::traits_type::eof()) {
         unsigned int bit_size = 0;
-        in.read(reinterpret_cast<char*>(&bit_size), sizeof(unsigned int) / sizeof(char));
-        unsigned int size = (bit_size + sizeof(char) * 8 - 1) / (sizeof(char) * 8);
+        for (unsigned int j = 0; j < sizeof(unsigned int); ++j) {
+            char tmp = 0;
+            in.read(&tmp, sizeof(char));
+            bit_size += (((unsigned int)tmp & 0xff) << (j * 8));
+        }
+        unsigned int size = (bit_size + 7) / 8;
         if (size == 0) {
             break;
         }
-        size_t out_size = tree.decode(in_buff, bit_size, out_buff);
         in.read(in_buff, size);
+        size_t out_size = tree.decode(in_buff, bit_size, out_buff);
         out.write(out_buff, out_size);
     }
 
