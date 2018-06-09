@@ -3,23 +3,27 @@
 //
 
 #include <iostream>
-#include <sstream>
-#include <cassert>
 #include "archiver.h"
 
 size_t const BUFFER_SIZE = 2 * 1024 * 1024;
+int const range = (1u << (sizeof(char) * 8));
+int const shift = range / 2;
 
 void archiver::encode(std::istream& in, std::ostream& out) {
     double timer = clock();
+
     char out_buff[2 * BUFFER_SIZE];
     char in_buff[BUFFER_SIZE];
-    std::unordered_map<char, unsigned long long> frequency(1u << (sizeof(char) * 8 + 2));
     in.seekg(0, std::ios::end);
     auto message_size = (unsigned long long) in.tellg();
     in.seekg(0, std::ios::beg);
     if (message_size == 0) {
         return;
     }
+    unsigned long long* frequency = new unsigned long long[range] + shift;
+    std::fill(frequency - shift, frequency + shift, 0);
+    frequency[0] = frequency[1] = 1;
+
     while (message_size) {
         if (BUFFER_SIZE < message_size) {
             in.read(in_buff, BUFFER_SIZE);
@@ -30,11 +34,8 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         }
         auto in_size = static_cast<size_t>(in.gcount());
         for (size_t j = 0; j < in_size; ++j) {
-            frequency[in_buff[j]]++;
+            ++frequency[in_buff[j]];
         }
-    }
-    if (frequency.size() == 1) {
-        frequency.insert({char(frequency.begin()->first + 1), 1});
     }
 
     auto tree = huffman_tree(frequency);
@@ -42,7 +43,7 @@ void archiver::encode(std::istream& in, std::ostream& out) {
     auto structure = tree.get_tree_structure();
     auto symbols = tree.get_symbols();
 
-    *reinterpret_cast<short int*>(out_buff)  = (short int)frequency.size();
+    *reinterpret_cast<short int*>(out_buff) = (short int)symbols.size();
     size_t i = sizeof(short int);
     for (size_t j = 0; j < symbols.size(); ++j, ++i) {
         out_buff[i] = symbols[j];
@@ -67,10 +68,10 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         unsigned int bit_counter = 0;
         i = sizeof(unsigned int);
         for (j = 0; j < in_size; ++j) {
-            auto code = codes[in_buff[j]];
-            bit_counter += code.second;
-            for (k = 0; k < code.second && ibit < sizeof(char) * 8; ++k, ++ibit) {
-                char bit = (code.first >> k) & 1;
+            auto [code, code_size] = codes[in_buff[j]];
+            bit_counter += code_size;
+            for (k = 0; k < code_size && ibit < sizeof(char) * 8; ++k, ++ibit) {
+                char bit = (code >> k) & 1;
                 tmp |= (bit << ibit);
             }
             if (ibit == sizeof(char) * 8) {
@@ -78,11 +79,11 @@ void archiver::encode(std::istream& in, std::ostream& out) {
                 tmp = 0;
                 ibit = 0;
             }
-            for (; k + sizeof(char) * 8 < code.second; k += sizeof(char) * 8) {
-                out_buff[i++] = (char)(code.first >> k);
+            for (; k + sizeof(char) * 8 < code_size; k += sizeof(char) * 8) {
+                out_buff[i++] = (char)(code >> k);
             }
-            for (; k < code.second; ++k, ++ibit) {
-                char bit = (code.first >> k) & 1;
+            for (; k < code_size; ++k, ++ibit) {
+                char bit = (code >> k) & 1;
                 tmp |= (bit << ibit);
             }
         }
@@ -95,9 +96,12 @@ void archiver::encode(std::istream& in, std::ostream& out) {
     }
     double executing_time = (clock() - timer) / CLOCKS_PER_SEC;
     std::clog << "Encoding completed in " << executing_time << " seconds" << std::endl;
+    delete[] (frequency - shift);
 }
 
 void archiver::decode(std::istream &in, std::ostream &out) {
+    double timer = clock();
+
     size_t const MINIMUM_MESSAGE_SIZE = 10 - 1;
     char in_buff[2 * BUFFER_SIZE];
     char out_buff[BUFFER_SIZE];
@@ -146,8 +150,14 @@ void archiver::decode(std::istream &in, std::ostream &out) {
         unsigned int bit_size = 0;
         in.read(reinterpret_cast<char*>(&bit_size), sizeof(unsigned int) / sizeof(char));
         unsigned int size = (bit_size + sizeof(char) * 8 - 1) / (sizeof(char) * 8);
-        in.read(in_buff, size);
+        if (size == 0) {
+            break;
+        }
         size_t out_size = tree.decode(in_buff, bit_size, out_buff);
+        in.read(in_buff, size);
         out.write(out_buff, out_size);
     }
+
+    double executing_time = (clock() - timer) / CLOCKS_PER_SEC;
+    std::clog << "Decoding completed in " << executing_time << " seconds" << std::endl;
 }

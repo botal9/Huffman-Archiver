@@ -20,11 +20,13 @@ bool huffman_tree::comparator::operator()(std::pair<unsigned long long int, std:
     return a.first > b.first;
 }
 
-huffman_tree::huffman_tree(std::unordered_map<char, unsigned long long> const& data) {
+huffman_tree::huffman_tree(unsigned long long const* frequency) {
     std::priority_queue<std::pair<unsigned long long, std::shared_ptr<Node>>,
             std::vector<std::pair<unsigned long long, std::shared_ptr<Node>>>, comparator> nodes_pool;
-    for (auto [symbol, weight] : data) {
-        nodes_pool.emplace(weight, std::make_shared<Node>(Node(symbol)));
+    for (int i = CHAR_MIN; i <= CHAR_MAX; ++i) {
+        if (frequency[i] > 0) {
+            nodes_pool.emplace(frequency[i], std::make_shared<Node>(Node(char(i))));
+        }
     }
     while(nodes_pool.size() > 1) {
         auto [left_weight, left_node] = nodes_pool.top();
@@ -38,11 +40,9 @@ huffman_tree::huffman_tree(std::unordered_map<char, unsigned long long> const& d
     huffman_tree::init_codes(root);
     huffman_tree::init_tree_structure(root);
     huffman_tree::init_symbols(root);
-    huffman_tree::init_reverse_codes(root);
-
 }
 
-huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char> const& symbols) {
+huffman_tree::huffman_tree(std::vector<bool> const& structure, std::vector<char> const& symbols) {
     if (symbols.empty() || structure.empty()) {
         error();
     }
@@ -85,13 +85,15 @@ huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char>
     }
 
     huffman_tree::tree_structure = structure;
-    codes.reserve(1u << (sizeof(char) * 8 + 2));
     huffman_tree::symbols = symbols;
     huffman_tree::init_codes(root);
-    huffman_tree::init_reverse_codes(root);
 }
 
-std::unordered_map<char, std::pair<unsigned long long, unsigned int>> const& huffman_tree::get_codes() {
+huffman_tree::~huffman_tree() {
+    delete[] (codes - shift);
+}
+
+std::pair<unsigned long long, unsigned int> const* huffman_tree::get_codes() {
     return huffman_tree::codes;
 }
 
@@ -103,15 +105,11 @@ std::vector<char> const& huffman_tree::get_symbols() {
     return symbols;
 }
 
-std::map<std::pair<unsigned long long, unsigned int>, char> const& huffman_tree::get_reverse_codes() {
-    return reverse_codes;
-}
-
 void huffman_tree::init_codes(std::shared_ptr<huffman_tree::Node> node,
                               unsigned long long code,
                               unsigned int size) {
     if (node->is_terminal) {
-        codes.insert({node->symbol, {code, size}});
+        codes[node->symbol] = {code, size};
         return;
     }
     if (node->left != nullptr) {
@@ -148,29 +146,11 @@ void huffman_tree::init_symbols(std::shared_ptr<huffman_tree::Node> node) {
     }
 }
 
-void huffman_tree::init_reverse_codes(std::shared_ptr<huffman_tree::Node> node,
-                                       unsigned long long code,
-                                       unsigned int size) {
-    if (node->is_terminal) {
-        reverse_codes.insert({{code, size}, node->symbol});
-        return;
+void huffman_tree::error(std::string message) {
+    if (!message.empty()) {
+        message = " (" + message + ")";
     }
-    if (node->left != nullptr) {
-        init_reverse_codes(node->left, code, size + 1);
-    }
-    if (node->right != nullptr) {
-        code |= (1u << size);
-        init_reverse_codes(node->right, code, size + 1);
-    }
-}
-
-void huffman_tree::destroy_tree() {
-    root = nullptr;
-}
-
-void huffman_tree::error() {
-    destroy_tree();
-    throw std::runtime_error("decoding error");
+    throw std::runtime_error("decoding error" + message);
 }
 
 size_t huffman_tree::decode(char const* array, unsigned int size, char* answer) {
