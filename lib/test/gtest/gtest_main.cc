@@ -30,7 +30,7 @@
 #include <stdio.h>
 
 #include "gtest.h"
-#include "archiver.h"
+#include "src/archiver.h"
 
 GTEST_API_ int main(int argc, char **argv) {
   printf("Running main() from gtest_main.cc\n");

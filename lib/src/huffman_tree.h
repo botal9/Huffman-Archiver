@@ -9,16 +9,17 @@
 #include <map>
 #include <vector>
 #include <bitset>
+#include <unordered_map>
 
 class huffman_tree {
 public:
 
-    explicit huffman_tree(std::map<char, unsigned long long> const& frequency);
+    explicit huffman_tree(std::unordered_map<char, unsigned long long> const& frequency);
 
     explicit huffman_tree(std::vector<bool> const& structure,
                           std::vector<char> const& symbols);
 
-    std::map<char,
+    std::unordered_map<char,
             std::pair<
                     unsigned long long,
                     unsigned int
@@ -37,7 +38,6 @@ private:
 
     struct Node {
         char symbol = 0;
-        unsigned long long amount = 1;
         bool is_terminal = true;
 
         std::shared_ptr<Node> left = nullptr;
@@ -45,8 +45,7 @@ private:
 
         Node() = default;
 
-        Node(char _symbol,
-             unsigned long long _amount,
+        explicit Node(char _symbol,
              bool _is_terminal = true,
              std::shared_ptr<Node> _left = nullptr,
              std::shared_ptr<Node> _right = nullptr
@@ -54,13 +53,14 @@ private:
     };
 
     std::shared_ptr<Node> root = nullptr;
-    std::map<char, std::pair<unsigned long long, unsigned int>> codes;
+    std::unordered_map<char, std::pair<unsigned long long, unsigned int>> codes;
     std::vector<bool> tree_structure;
     std::vector<char> symbols;
     std::map<std::pair<unsigned long long, unsigned int>, char> reverse_codes;
 
-    struct cmp {
-        bool operator()(std::shared_ptr<Node> a, std::shared_ptr<Node> b);
+    struct comparator {
+        bool operator()(std::pair<unsigned long long, std::shared_ptr<Node>> a,
+                        std::pair<unsigned long long, std::shared_ptr<Node>> b);
     };
 
     void init_codes(std::shared_ptr<Node> node,

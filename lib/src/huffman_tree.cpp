@@ -6,34 +6,34 @@
 #include "huffman_tree.h"
 
 huffman_tree::Node::Node(char _symbol,
-                   unsigned long long _amount,
                    bool _is_terminal,
                    std::shared_ptr<Node> _left,
                    std::shared_ptr<Node> _right) :
         symbol(_symbol),
-        amount(_amount),
         is_terminal(_is_terminal),
         left(std::move(_left)),
         right(std::move(_right))
 {}
 
-bool huffman_tree::cmp::operator()(std::shared_ptr<Node> a, std::shared_ptr<Node> b) {
-    return a->amount > b->amount;
+bool huffman_tree::comparator::operator()(std::pair<unsigned long long int, std::shared_ptr<huffman_tree::Node>> a,
+                                          std::pair<unsigned long long int, std::shared_ptr<huffman_tree::Node>> b) {
+    return a.first > b.first;
 }
 
-huffman_tree::huffman_tree(std::map<char, unsigned long long> const& data) {
-    std::priority_queue<std::shared_ptr<Node>, std::vector<std::shared_ptr<Node>>, cmp> nodes_pool;
-    for (auto tmp : data) {
-        nodes_pool.push(std::make_shared<Node>(Node(tmp.first, tmp.second)));
+huffman_tree::huffman_tree(std::unordered_map<char, unsigned long long> const& data) {
+    std::priority_queue<std::pair<unsigned long long, std::shared_ptr<Node>>,
+            std::vector<std::pair<unsigned long long, std::shared_ptr<Node>>>, comparator> nodes_pool;
+    for (auto [symbol, weight] : data) {
+        nodes_pool.emplace(weight, std::make_shared<Node>(Node(symbol)));
     }
     while(nodes_pool.size() > 1) {
-        auto left = nodes_pool.top();
+        auto [left_weight, left_node] = nodes_pool.top();
         nodes_pool.pop();
-        auto right = nodes_pool.top();
+        auto [right_weight, right_node] = nodes_pool.top();
         nodes_pool.pop();
-        nodes_pool.push(std::make_shared<Node>(Node(0, left->amount + right->amount, false, left, right)));
+        nodes_pool.emplace(left_weight + right_weight, std::make_shared<Node>(Node(0, false, left_node, right_node)));
     }
-    huffman_tree::root = nodes_pool.top();
+    huffman_tree::root = nodes_pool.top().second;
 
     huffman_tree::init_codes(root);
     huffman_tree::init_tree_structure(root);
@@ -46,7 +46,7 @@ huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char>
     if (symbols.empty() || structure.empty()) {
         error();
     }
-    root = std::make_shared<Node>(Node(0, 0, false));
+    root = std::make_shared<Node>(Node(0, false));
     std::vector<std::shared_ptr<Node>> parents;
     auto node = root;
     size_t i = 0;
@@ -55,7 +55,7 @@ huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char>
             error();
         }
         if (tmp == 0) {
-            node->left = std::make_shared<Node>(Node(0, 0, false));
+            node->left = std::make_shared<Node>(Node(0, false));
             parents.push_back(node);
             node = node->left;
         } else {
@@ -68,7 +68,7 @@ huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char>
                 node = parents.back();
                 parents.pop_back();
             } while (node->right != nullptr);
-            node->right = std::make_shared<Node>(Node(0, 0, false));
+            node->right = std::make_shared<Node>(Node(0, false));
             parents.push_back(node);
             node = node->right;
         }
@@ -85,12 +85,13 @@ huffman_tree::huffman_tree(std::vector<bool> const &structure, std::vector<char>
     }
 
     huffman_tree::tree_structure = structure;
+    codes.reserve(1u << (sizeof(char) * 8 + 2));
     huffman_tree::symbols = symbols;
     huffman_tree::init_codes(root);
     huffman_tree::init_reverse_codes(root);
 }
 
-std::map<char, std::pair<unsigned long long, unsigned int>> const& huffman_tree::get_codes() {
+std::unordered_map<char, std::pair<unsigned long long, unsigned int>> const& huffman_tree::get_codes() {
     return huffman_tree::codes;
 }
 
@@ -208,3 +209,5 @@ size_t huffman_tree::decode(char const* array, unsigned int size, char* answer) 
     }
     return pos;
 }
+
+

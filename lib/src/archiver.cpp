@@ -3,7 +3,6 @@
 //
 
 #include <iostream>
-#include <bitset>
 #include <sstream>
 #include <cassert>
 #include "archiver.h"
@@ -11,9 +10,10 @@
 size_t const BUFFER_SIZE = 2 * 1024 * 1024;
 
 void archiver::encode(std::istream& in, std::ostream& out) {
+    double timer = clock();
     char out_buff[2 * BUFFER_SIZE];
     char in_buff[BUFFER_SIZE];
-    std::map<char, unsigned long long> frequency;
+    std::unordered_map<char, unsigned long long> frequency(1u << (sizeof(char) * 8 + 2));
     in.seekg(0, std::ios::end);
     auto message_size = (unsigned long long) in.tellg();
     in.seekg(0, std::ios::beg);
@@ -28,7 +28,7 @@ void archiver::encode(std::istream& in, std::ostream& out) {
             in.read(in_buff, (size_t)message_size);
             message_size = 0;
         }
-        size_t const in_size = static_cast<size_t>(in.gcount());
+        auto in_size = static_cast<size_t>(in.gcount());
         for (size_t j = 0; j < in_size; ++j) {
             frequency[in_buff[j]]++;
         }
@@ -63,7 +63,7 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         size_t ibit = 0, j, k;
         char tmp = 0;
         in.read(in_buff, BUFFER_SIZE);
-        size_t const in_size = static_cast<size_t>(in.gcount());
+        auto in_size = static_cast<size_t>(in.gcount());
         unsigned int bit_counter = 0;
         i = sizeof(unsigned int);
         for (j = 0; j < in_size; ++j) {
@@ -93,6 +93,8 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         *reinterpret_cast<unsigned int*>(out_buff) = out_size;
         out.write(out_buff, i);
     }
+    double executing_time = (clock() - timer) / CLOCKS_PER_SEC;
+    std::clog << "Encoding completed in " << executing_time << " seconds" << std::endl;
 }
 
 void archiver::decode(std::istream &in, std::ostream &out) {

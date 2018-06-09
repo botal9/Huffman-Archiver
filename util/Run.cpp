@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
-#include "archiver.h"
+#include "lib/src/archiver.h"
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
 
     std::ifstream in(source, std::ifstream::binary);
     std::ofstream out(target, std::ofstream::binary);
-    if (!in.is_open() || out.is_open()) {
+    if (!in.is_open() || !out.is_open()) {
         std::cout << "Can't open input/output file" << std::endl;
         return 0;
     }
