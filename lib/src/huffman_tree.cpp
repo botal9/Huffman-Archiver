@@ -29,11 +29,11 @@ huffman_tree::huffman_tree(unsigned long long const* frequency) {
         }
     }
     while(nodes_pool.size() > 1) {
-        auto [left_weight, left_node] = nodes_pool.top();
+        auto left = nodes_pool.top();
         nodes_pool.pop();
-        auto [right_weight, right_node] = nodes_pool.top();
+        auto right = nodes_pool.top();
         nodes_pool.pop();
-        nodes_pool.emplace(left_weight + right_weight, std::make_shared<Node>(Node(0, false, left_node, right_node)));
+        nodes_pool.emplace(left.first + right.first, std::make_shared<Node>(Node(0, false, left.second, right.second)));
     }
     huffman_tree::root = nodes_pool.top().second;
 
