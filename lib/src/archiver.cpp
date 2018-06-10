@@ -5,7 +5,7 @@
 #include <iostream>
 #include "archiver.h"
 
-size_t const BUFFER_SIZE = 2 * 1024 * 1024;
+size_t const BUFFER_SIZE = 128 * 1024;
 int const range = (1u << 8u);
 int const shift = range / 2;
 

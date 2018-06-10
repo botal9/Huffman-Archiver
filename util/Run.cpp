@@ -38,4 +38,6 @@ int main(int argc, char* argv[]) {
     } else {
         std::cout << "Wrong arguments" << std::endl;
     }
+    in.close();
+    out.close();
 }
