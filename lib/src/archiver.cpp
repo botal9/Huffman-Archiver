@@ -68,9 +68,9 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         unsigned int bit_counter = 0;
         i = sizeof(unsigned int);
         for (j = 0; j < in_size; ++j) {
-            auto [code, code_size] = codes[in_buff[j]];
-            bit_counter += code_size;
-            for (k = 0; k < code_size && ibit < 8; ++k, ++ibit) {
+            auto code = codes[in_buff[j]];
+            bit_counter += code.second;
+            for (k = 0; k < code && ibit < 8; ++k, ++ibit) {
                 char bit = (code >> k) & 1;
                 tmp |= (bit << ibit);
             }
@@ -79,11 +79,11 @@ void archiver::encode(std::istream& in, std::ostream& out) {
                 tmp = 0;
                 ibit = 0;
             }
-            for (; k + 8 < code_size; k += 8) {
-                out_buff[i++] = (char)(code >> k);
+            for (; k + 8 < code.second; k += 8) {
+                out_buff[i++] = (char)(code.first >> k);
             }
-            for (; k < code_size; ++k, ++ibit) {
-                char bit = (code >> k) & 1;
+            for (; k < code.second; ++k, ++ibit) {
+                char bit = (code.first >> k) & 1;
                 tmp |= (bit << ibit);
             }
         }
