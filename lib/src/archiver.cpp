@@ -70,8 +70,8 @@ void archiver::encode(std::istream& in, std::ostream& out) {
         for (j = 0; j < in_size; ++j) {
             auto code = codes[in_buff[j]];
             bit_counter += code.second;
-            for (k = 0; k < code && ibit < 8; ++k, ++ibit) {
-                char bit = (code >> k) & 1;
+            for (k = 0; k < code.second && ibit < 8; ++k, ++ibit) {
+                char bit = (code.first >> k) & 1;
                 tmp |= (bit << ibit);
             }
             if (ibit == 8) {
