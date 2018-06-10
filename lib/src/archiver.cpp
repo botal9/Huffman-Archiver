@@ -129,6 +129,9 @@ void archiver::decode(std::istream &in, std::ostream &out) {
     std::vector<char> symbols;
     std::vector<bool> structure;
     in.read(in_buff, amount_of_symbols + (tree_structure_size + 7) / 8);
+    if (in.gcount() != amount_of_symbols + (tree_structure_size + 7) / 8) {
+        throw std::runtime_error("decoding error");
+    }
     for (; i < (size_t)amount_of_symbols; ++i) {
         symbols.push_back(in_buff[i]);
     }
@@ -163,6 +166,9 @@ void archiver::decode(std::istream &in, std::ostream &out) {
             break;
         }
         in.read(in_buff, size);
+        if (in.gcount() != size) {
+            throw std::runtime_error("decoding error");
+        }
         size_t out_size = tree.decode(in_buff, bit_size, out_buff);
         out.write(out_buff, out_size);
     }
